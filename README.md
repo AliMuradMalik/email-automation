@@ -114,8 +114,8 @@ the database moves to free hosted Postgres, and an outside timer triggers the se
 
 1. **Database**: sign up at neon.com (free), create a project and copy the pooled connection string. It looks like
    `postgresql://user:password@ep-something-pooler.region.aws.neon.tech/neondb?sslmode=require`.
-2. **Import the repo**: at vercel.com choose Add New > Project, import this GitHub repository, and pick "Other"
-   as the framework.
+2. **Import the repo**: at vercel.com choose Add New > Project and import this GitHub repository. Vercel finds
+   the FastAPI app in `app/main.py` by itself; no rewrites or an `api/` folder are needed.
 3. **Environment variables** (Settings > Environment Variables):
 
    | Name | Value |

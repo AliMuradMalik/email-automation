@@ -13,14 +13,13 @@ def test_hosted_postgres_urls_use_the_psycopg_driver():
     assert _normalise_url("sqlite:///data/outreach.db") == "sqlite:///data/outreach.db"
 
 
-def test_vercel_config_sends_every_path_to_the_app():
+def test_vercel_uses_the_fastapi_entrypoint():
+    """Vercel finds the FastAPI app itself. A rewrite would hand it the wrong path (/api/index)."""
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
-    assert config["rewrites"] == [{"source": "/(.*)", "destination": "/api/index"}]
-    assert "app/**" in config["functions"]["api/index.py"]["includeFiles"]
-
-
-def test_entry_point_exposes_the_app():
-    assert "from app.main import app" in (ROOT / "api" / "index.py").read_text(encoding="utf-8")
+    assert "app/main.py" in config["functions"]
+    assert "app/**" in config["functions"]["app/main.py"]["includeFiles"]
+    assert "rewrites" not in config and "routes" not in config
+    assert not (ROOT / "api").exists()
 
 
 def test_blank_settings_fall_back_to_defaults(monkeypatch):
