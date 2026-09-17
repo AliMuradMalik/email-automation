@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{{ mailbox.email if mailbox.id else 'Add mailbox' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ mailbox.email if mailbox.id else 'Add mailbox' }}</h1>
+  {% if mailbox.id %}
+  <div class="actions">
+    <form method="post" action="/mailboxes/{{ mailbox.id }}/test" class="inline"><button class="secondary">Test connection</button></form>
+    {% if mailbox.domain_id %}<a class="btn secondary" href="/domains/{{ mailbox.domain_id }}">Domain DNS</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if errors %}<div class="notice bad"><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+{% if test_results %}
+<div class="card">
+  <h2>Connection test</h2>
+  {% for name, ok, message in test_results %}
+  <p><span class="badge {{ 'ok' if ok else 'bad' }}">{{ 'OK' if ok else 'Failed' }}</span> <strong>{{ name }}</strong>: {{ message }}</p>
+  {% endfor %}
+  {% if not test_results|selectattr(1)|list|length == test_results|length and mailbox.smtp_host == 'smtp.gmail.com' %}
+  <p class="small muted">Google needs an <strong>app password</strong>, not your normal password. Turn on 2-Step Verification,
+     then create one at myaccount.google.com/apppasswords. On Google Workspace an admin may need to allow app passwords.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if mailbox.id and mailbox.last_error %}<div class="notice bad">{{ mailbox.last_error }}</div>{% endif %}
+
+<form method="post" action="{{ '/mailboxes/%d' % mailbox.id if mailbox.id else '/mailboxes' }}">
+<fieldset>
+  <legend>Account</legend>
+  <div class="form-grid">
+    <div><label for="local_part">Send from</label>
+      <div class="address">
+        <input type="text" id="local_part" name="local_part" value="{{ mailbox.email.split('@')[0] }}" placeholder="sam" required>
+        <select id="domain_id" name="domain_id" required>
+          <option value="">@ choose domain</option>
+          {% for d in domains %}<option value="{{ d.id }}" {{ 'selected' if d.id == mailbox.domain_id }}>@{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <span class="hint">Domains come from the <a href="/domains">Domains</a> page.</span></div>
+    <div><label for="from_name">Sender name <span class="hint">A real person's name gets more replies</span></label>
+      <input type="text" id="from_name" name="from_name" value="{{ mailbox.from_name }}"></div>
+  </div>
+  <div class="form-grid">
+    <div><label for="username">Login username <span class="hint">Leave empty to use the email address</span></label>
+      <input type="text" id="username" name="username" value="{{ mailbox.username }}"></div>
+    <div><label for="password">App password
+        {% if mailbox.id %}<span class="hint">Leave empty to keep the saved one</span>{% endif %}</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" {{ 'required' if not mailbox.id }}></div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Servers</legend>
+  <p class="small muted">Filled in from the domain's email provider. Only change these if your provider tells you to.</p>
+  <div class="form-grid">
+    <div><label for="smtp_host">SMTP server</label>
+      <input type="text" id="smtp_host" name="smtp_host" value="{{ mailbox.smtp_host }}" required></div>
+    <div><label for="smtp_port">SMTP port</label>
+      <input type="number" id="smtp_port" name="smtp_port" value="{{ mailbox.smtp_port }}"></div>
+    <div><label for="smtp_security">Encryption</label>
+      <select id="smtp_security" name="smtp_security">
+        <option value="ssl" {{ 'selected' if mailbox.smtp_security == 'ssl' }}>SSL/TLS (usually port 465)</option>
+        <option value="starttls" {{ 'selected' if mailbox.smtp_security == 'starttls' }}>STARTTLS (usually port 587)</option>
+      </select></div>
+  </div>
+  <div class="form-grid">
+    <div><label for="imap_host">IMAP server</label>
+      <input type="text" id="imap_host" name="imap_host" value="{{ mailbox.imap_host }}" required></div>
+    <div><label for="imap_port">IMAP port</label>
+      <input type="number" id="imap_port" name="imap_port" value="{{ mailbox.imap_port }}"></div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Sending pace</legend>
+  <p class="small muted">Start low and ramp up. Sending too much from a new mailbox is the fastest way into spam.</p>
+  <div class="form-grid">
+    <div><label for="warmup_start">Emails on the first day</label>
+      <input type="number" id="warmup_start" name="warmup_start" min="1" value="{{ mailbox.warmup_start }}"></div>
+    <div><label for="warmup_step">Add this many per day</label>
+      <input type="number" id="warmup_step" name="warmup_step" min="0" value="{{ mailbox.warmup_step }}"></div>
+    <div><label for="daily_limit">Daily maximum <span class="hint">20-40 recommended</span></label>
+      <input type="number" id="daily_limit" name="daily_limit" min="1" value="{{ mailbox.daily_limit }}"></div>
+  </div>
+  <div class="form-grid">
+    <div><label for="min_delay_seconds">Minimum seconds between emails</label>
+      <input type="number" id="min_delay_seconds" name="min_delay_seconds" min="30" value="{{ mailbox.min_delay_seconds }}"></div>
+    <div><label for="max_delay_seconds">Maximum seconds between emails</label>
+      <input type="number" id="max_delay_seconds" name="max_delay_seconds" min="30" value="{{ mailbox.max_delay_seconds }}"></div>
+  </div>
+  <div class="form-grid">
+    <div><label for="time_zone">Time zone <span class="hint">Use your leads' time zone</span></label>
+      <input type="text" id="time_zone" name="time_zone" list="zones" value="{{ mailbox.time_zone }}">
+      <datalist id="zones">{% for z in timezones %}<option value="{{ z }}">{% endfor %}</datalist></div>
+    <div><label for="window_start_hour">Start hour (0-23)</label>
+      <input type="number" id="window_start_hour" name="window_start_hour" min="0" max="23" value="{{ mailbox.window_start_hour }}"></div>
+    <div><label for="window_end_hour">End hour (1-24)</label>
+      <input type="number" id="window_end_hour" name="window_end_hour" min="1" max="24" value="{{ mailbox.window_end_hour }}"></div>
+  </div>
+  <label>Sending days</label>
+  <div class="checks">
+    {% set days = mailbox.send_day_set %}
+    {% for name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+    <label><input type="checkbox" name="send_days" value="{{ loop.index0 }}" {{ 'checked' if loop.index0 in days }}> {{ name }}</label>
+    {% endfor %}
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Signature</legend>
+  <textarea id="signature" name="signature" style="min-height:90px" placeholder="Jane Doe&#10;Founder, Brand">{{ mailbox.signature }}</textarea>
+  <span class="hint">Added under every email. Plain text; keep links to a minimum.</span>
+</fieldset>
+
+<button>{{ 'Save' if mailbox.id else 'Add mailbox' }}</button>
+</form>
+
+{% if mailbox.id %}
+<div class="card" style="margin-top:24px">
+  <form method="post" action="/mailboxes/{{ mailbox.id }}/delete" onsubmit="return confirm('Delete this mailbox?')">
+    <button class="danger">Delete mailbox</button>
+  </form>
+</div>
+{% endif %}
+
+<script>
+const presets = {{ presets|tojson }};
+const domainProviders = {{ domain_providers|tojson }};
+document.getElementById('domain_id').addEventListener('change', (event) => {
+  const preset = presets[domainProviders[event.target.value]];
+  if (!preset) return;
+  for (const [key, value] of Object.entries(preset)) {
+    const field = document.getElementById(key);
+    if (field) field.value = value;
+  }
+});
+</script>
+{% endblock %}

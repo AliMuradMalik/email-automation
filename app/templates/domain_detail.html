@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ domain.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ domain.name }}
+    {% if domain.dns_checked_at is none %}<span class="badge warn">not checked</span>
+    {% elif domain.dns_ok %}<span class="badge ok">DNS all good</span>
+    {% else %}<span class="badge bad">DNS needs fixing</span>{% endif %}</h1>
+  <div class="actions">
+    <form method="post" action="/domains/{{ domain.id }}/check" class="inline"><button>Check DNS</button></form>
+    <a class="btn secondary" href="/mailboxes/new?domain_id={{ domain.id }}">Add mailbox</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>1. Add these DNS records</h2>
+  <p class="small muted">Add them where your domain's DNS is managed (for example Cloudflare > DNS > Records).
+     "@" means the domain itself.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Type</th><th>Name / Host</th><th>Value</th><th>What it's for</th></tr></thead>
+    <tbody>
+    {% for r in records %}
+    <tr>
+      <td><code>{{ r.type }}</code></td>
+      <td><code>{{ r.host }}</code></td>
+      <td><code>{{ r.value }}</code></td>
+      <td class="small muted">{{ r.note }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+<div class="card">
+  <h2>2. Check them</h2>
+  {% set checks = domain.checks %}
+  {% if checks %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Record</th><th>Result</th><th>Found</th></tr></thead>
+    <tbody>
+    {% for c in checks %}
+    <tr>
+      <td><strong>{{ c.name }}</strong></td>
+      <td><span class="badge {{ 'ok' if c.ok else 'bad' }}">{{ 'OK' if c.ok else 'Needs fixing' }}</span></td>
+      <td class="small"><code>{{ c.detail }}</code>{% if c.tip %}<div class="muted">{{ c.tip }}</div>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="small muted">Last checked {{ domain.dns_checked_at|dt }} UTC. New records can take a few hours to show up.
+     Campaigns sending from this domain can't start until every check passes.</p>
+  {% else %}
+  <p class="muted">Not checked yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>3. Mailboxes on this domain</h2>
+  {% if domain.mailboxes %}
+  <ul>
+    {% for mb in domain.mailboxes %}
+    <li><a href="/mailboxes/{{ mb.id }}">{{ mb.email }}</a> <span class="badge {{ mb.status }}">{{ mb.status }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">None yet.</p>
+  {% endif %}
+  <a class="btn secondary" href="/mailboxes/new?domain_id={{ domain.id }}">Add a mailbox on {{ domain.name }}</a>
+</div>
+
+<div class="card">
+  <h2>Settings</h2>
+  <form method="post" action="/domains/{{ domain.id }}" class="form-grid">
+    <div><label for="provider">Email provider</label>
+      <select id="provider" name="provider">
+        {% for key, p in providers.items() %}<option value="{{ key }}" {{ 'selected' if key == domain.provider }}>{{ p.label }}</option>{% endfor %}
+      </select></div>
+    <div><label for="dkim_selector">DKIM selector <span class="hint">The part before ._domainkey</span></label>
+      <input type="text" id="dkim_selector" name="dkim_selector" value="{{ domain.dkim_selector }}"></div>
+    <div style="align-self:end"><button class="secondary">Save and check</button></div>
+  </form>
+  {% if not domain.mailboxes %}
+  <form method="post" action="/domains/{{ domain.id }}/delete" onsubmit="return confirm('Delete this domain?')" style="margin-top:12px">
+    <button class="danger">Delete domain</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

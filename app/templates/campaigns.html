@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Campaigns{% endblock %}
+{% block content %}
+<h1>Campaigns</h1>
+
+<div class="card">
+  <form method="post" action="/campaigns" class="form-grid">
+    <div><label for="name">New campaign</label>
+      <input type="text" id="name" name="name" placeholder="e.g. Dental clinics in Texas" required></div>
+    <div style="align-self:end"><button>Create campaign</button></div>
+  </form>
+</div>
+
+<div class="card">
+  {% set campaign_rows = rows %}
+  {% if campaign_rows %}{% include "_campaign_table.html" %}
+  {% else %}<p class="muted">No campaigns yet.</p>{% endif %}
+</div>
+{% endblock %}

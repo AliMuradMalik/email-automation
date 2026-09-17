@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Mailboxes{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Mailboxes</h1>
+  {% if has_domains %}<a class="btn" href="/mailboxes/new">Add mailbox</a>
+  {% else %}<a class="btn" href="/domains">Add a domain first</a>{% endif %}
+</div>
+
+{% if not has_domains %}
+<div class="notice">Mailboxes send from a domain. Add your sending domain on the <a href="/domains">Domains</a> page first.</div>
+{% endif %}
+
+<div class="card">
+  {% set mailbox_rows = rows %}
+  {% if mailbox_rows %}{% include "_mailbox_table.html" %}
+  {% else %}<p class="muted">No mailboxes yet.</p>{% endif %}
+</div>
+
+<div class="card small">
+  <h2>How many mailboxes do I need?</h2>
+  <p>Keep each mailbox at about 20 to 40 cold emails a day. To reach 100 people a day, use 3 or 4 mailboxes.
+     Put them on a separate domain (for example <code>trybrand.com</code> next to <code>brand.com</code>)
+     so your main domain's reputation stays safe if something goes wrong.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{% endblock %} · Outreach</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+{% if logged_in %}
+{% set path = request.url.path %}
+<header class="top"><div class="inner">
+  <a class="brand" href="/">Outreach</a>
+  <nav>
+    <a href="/" class="{{ 'active' if path == '/' }}">Dashboard</a>
+    <a href="/domains" class="{{ 'active' if path.startswith('/domains') }}">Domains</a>
+    <a href="/mailboxes" class="{{ 'active' if path.startswith('/mailboxes') }}">Mailboxes</a>
+    <a href="/leads" class="{{ 'active' if path.startswith('/leads') }}">Leads</a>
+    <a href="/campaigns" class="{{ 'active' if path.startswith('/campaigns') }}">Campaigns</a>
+    <a href="/inbox" class="{{ 'active' if path.startswith('/inbox') }}">Inbox</a>
+    <a href="/suppression" class="{{ 'active' if path.startswith('/suppression') }}">Do not contact</a>
+  </nav>
+  <form method="post" action="/logout" class="inline"><button class="secondary">Log out</button></form>
+</div></header>
+{% endif %}
+<main>
+{% for kind, message in flashes %}<div class="flash {{ kind }}">{{ message }}</div>{% endfor %}
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

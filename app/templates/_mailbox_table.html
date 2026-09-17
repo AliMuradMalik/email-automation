@@ -1,0 +1,21 @@
+<div class="table-wrap"><table>
+<thead><tr><th>Mailbox</th><th>Status</th><th>Sent today</th><th>Sending hours</th><th>Next send (UTC)</th><th></th></tr></thead>
+<tbody>
+{% for row in mailbox_rows %}{% set mb = row.mailbox %}
+<tr>
+  <td><a href="/mailboxes/{{ mb.id }}">{{ mb.email }}</a>
+    {% if mb.last_error %}<div class="small error-text">{{ mb.last_error }}</div>{% endif %}</td>
+  <td><span class="badge {{ mb.status }}">{{ mb.status }}</span></td>
+  <td>{{ row.sent_today }} / {{ row.cap }}
+    {% if row.cap < mb.daily_limit %}<div class="small muted">ramping up to {{ mb.daily_limit }}</div>{% endif %}</td>
+  <td>{{ '%02d' % mb.window_start_hour }}:00-{{ '%02d' % mb.window_end_hour }}:00 {{ mb.time_zone }}
+    <div class="small muted">{{ 'inside hours now' if row.in_window else 'outside hours now' }}</div></td>
+  <td class="small">{{ mb.next_send_at|dt }}</td>
+  <td><div class="actions">
+    <form method="post" action="/mailboxes/{{ mb.id }}/status" class="inline">
+      <button class="secondary">{{ 'Pause' if mb.status == 'active' else 'Resume' }}</button></form>
+    {% if mb.domain_id %}<a class="btn secondary" href="/domains/{{ mb.domain_id }}">Domain DNS</a>{% endif %}
+  </div></td>
+</tr>
+{% endfor %}
+</tbody></table></div>

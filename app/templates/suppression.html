@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Do not contact{% endblock %}
+{% block content %}
+<h1>Do not contact</h1>
+
+<div class="two-col">
+  <div class="card">
+    <h2>Add addresses or domains</h2>
+    <form method="post" action="/suppression">
+      <div class="field">
+        <textarea name="values" placeholder="person@company.com&#10;competitor.com"></textarea>
+        <span class="hint">One per line. A domain blocks everyone at that company.</span>
+      </div>
+      <button>Add</button>
+    </form>
+  </div>
+  <div class="card small">
+    <h2>How people get on this list</h2>
+    <ul>
+      <li><strong>unsubscribed</strong>: clicked the unsubscribe link or replied asking to be removed</li>
+      <li><strong>bounced</strong>: the address doesn't exist</li>
+      <li><strong>manual</strong>: you added them</li>
+    </ul>
+    <p class="muted">Every campaign skips everyone on this list. Emailing people who asked you to stop is illegal in
+       most countries and gets mailboxes blocked.</p>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" action="/suppression" class="form-grid">
+    <div><input type="search" name="q" value="{{ q }}" placeholder="Search"></div>
+    <div><button class="secondary">Search</button></div>
+  </form>
+  <p class="muted small">{{ total }} entries{% if rows|length < total %}, showing {{ rows|length }}{% endif %}</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Address or domain</th><th>Reason</th><th>Added (UTC)</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.value }}</td>
+      <td><span class="badge {{ 'warn' if row.reason == 'manual' else 'bad' }}">{{ row.reason }}</span></td>
+      <td class="small">{{ row.created_at|dt }}</td>
+      <td><form method="post" action="/suppression/{{ row.id }}/delete" class="inline" onsubmit="return confirm('Allow emailing this again?')">
+        <button class="secondary">Remove</button></form></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="muted">Empty.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

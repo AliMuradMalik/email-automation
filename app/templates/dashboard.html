@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{% if setup %}
+<div class="notice"><strong>Before you send:</strong>
+  <ul>{% for item in setup %}<li>{{ item }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ sent_week }}</div><div class="label">Emails sent, last 7 days</div></div>
+  <div class="stat"><div class="num">{{ events_week.get('reply', 0) }}</div><div class="label">Replies</div></div>
+  <div class="stat"><div class="num">{{ events_week.get('bounce', 0) }}</div><div class="label">Bounces</div></div>
+  <div class="stat"><div class="num">{{ events_week.get('unsubscribe', 0) }}</div><div class="label">Unsubscribe replies</div></div>
+  <div class="stat"><div class="num">{{ lead_count }}</div><div class="label">Leads</div></div>
+</div>
+
+<div class="card">
+  <h2>Mailboxes today</h2>
+  {% if mailbox_rows %}{% include "_mailbox_table.html" %}
+  {% else %}<p class="muted">No mailboxes yet. <a href="/mailboxes/new">Add one</a>.</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>Campaigns</h2>
+  {% if campaign_rows %}{% include "_campaign_table.html" %}
+  {% else %}<p class="muted">No campaigns yet. <a href="/campaigns">Create one</a>.</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>Latest replies and bounces</h2>
+  {% set events = recent_events %}
+  {% if events %}{% include "_events_table.html" %}
+  {% else %}<p class="muted">Nothing yet. Replies, bounces and unsubscribe requests show up here.</p>{% endif %}
+</div>
+{% endblock %}

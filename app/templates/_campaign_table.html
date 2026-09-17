@@ -1,0 +1,16 @@
+<div class="table-wrap"><table>
+<thead><tr><th>Campaign</th><th>Status</th><th>Leads</th><th>Contacted</th><th>Emails sent</th><th>Replied</th><th>Bounced</th><th>Unsubscribed</th></tr></thead>
+<tbody>
+{% for campaign, s in campaign_rows %}
+<tr>
+  <td><a href="/campaigns/{{ campaign.id }}">{{ campaign.name }}</a></td>
+  <td><span class="badge {{ campaign.status }}">{{ campaign.status }}</span></td>
+  <td>{{ s.total }}</td>
+  <td>{{ s.contacted }}</td>
+  <td>{{ s.sent }}</td>
+  <td>{{ s.replied }} <span class="muted small">({{ s.reply_rate|pct }})</span></td>
+  <td>{{ s.bounced }} <span class="muted small">({{ s.bounce_rate|pct }})</span></td>
+  <td>{{ s.unsubscribed }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>

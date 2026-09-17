@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+<h1>Leads</h1>
+
+<div class="card">
+  <h2>Import CSV</h2>
+  {% if error %}<div class="notice bad">{{ error }}</div>{% endif %}
+  {% if result %}
+  <div class="flash">Added {{ result.added }}, updated {{ result.updated }}, skipped {{ result.skipped|length }}.</div>
+  {% if result.skipped %}
+  <details class="field">
+    <summary>Skipped rows ({{ result.skipped|length }})</summary>
+    <div class="table-wrap"><table><tbody>
+      {% for value, reason in result.skipped[:300] %}<tr><td>{{ value }}</td><td class="muted">{{ reason }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if result.skipped|length > 300 %}<p class="muted small">Showing the first 300.</p>{% endif %}
+  </details>
+  {% endif %}
+  {% endif %}
+
+  <form method="post" action="/leads/import" enctype="multipart/form-data">
+    <div class="field">
+      <label for="file">CSV file
+        <span class="hint">Needs an <code>email</code> column. Also recognised: first_name, last_name, company, title,
+          website. Any other column becomes a placeholder, so a <code>city</code> column can be used as
+          <code>{{ '{{city}}' }}</code>.</span></label>
+      <input type="file" id="file" name="file" accept=".csv,text/csv" required>
+    </div>
+    <div class="checks field">
+      <label><input type="checkbox" name="check_mx" value="true" checked> Check each domain can receive email (slower, prevents bounces)</label>
+      <label><input type="checkbox" name="skip_role" value="true" checked> Skip shared addresses like info@ and sales@</label>
+    </div>
+    <button>Import</button>
+  </form>
+  <p class="small muted">Only import people you have a real reason to contact. Bought or scraped lists are full of dead
+     addresses and spam traps that will get your domain blocked.</p>
+</div>
+
+<div class="card">
+  <form method="get" action="/leads" class="form-grid">
+    <div><input type="search" name="q" value="{{ q }}" placeholder="Search name, email or company"></div>
+    <div><select name="source">
+      <option value="">All imports</option>
+      {% for s in sources %}<option value="{{ s }}" {{ 'selected' if s == source }}>{{ s }}</option>{% endfor %}
+    </select></div>
+    <div><button class="secondary">Filter</button></div>
+  </form>
+  <p class="muted small">{{ total }} leads</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Title</th><th>Imported from</th><th></th></tr></thead>
+    <tbody>
+    {% for lead in leads %}
+    <tr>
+      <td>{{ lead.email }}</td>
+      <td>{{ lead.first_name }} {{ lead.last_name }}</td>
+      <td>{{ lead.company }}</td>
+      <td>{{ lead.title }}</td>
+      <td class="small muted">{{ lead.source }}</td>
+      <td><form method="post" action="/leads/{{ lead.id }}/delete" class="inline" onsubmit="return confirm('Delete this lead?')">
+        <button class="danger">Delete</button></form></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">No leads found.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pages > 1 %}
+  <div class="pager">
+    {% if page_no > 1 %}<a class="btn secondary" href="/leads?q={{ q|urlencode }}&source={{ source|urlencode }}&page={{ page_no - 1 }}">Previous</a>{% endif %}
+    <span class="muted">Page {{ page_no }} of {{ pages }}</span>
+    {% if page_no < pages %}<a class="btn secondary" href="/leads?q={{ q|urlencode }}&source={{ source|urlencode }}&page={{ page_no + 1 }}">Next</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

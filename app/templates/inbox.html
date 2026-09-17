@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Inbox{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Inbox</h1>
+  <form method="post" action="/inbox/check" class="inline"><button class="secondary">Check inboxes now</button></form>
+</div>
+
+<div class="actions" style="margin-bottom:12px">
+  {% for value, label in [('', 'All'), ('reply', 'Replies'), ('auto_reply', 'Auto-replies'), ('unsubscribe', 'Unsubscribe requests'), ('bounce', 'Bounces')] %}
+  <a class="btn {{ '' if kind == value else 'secondary' }}" href="/inbox{{ '?kind=' ~ value if value }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <p class="small muted">A reply stops the sequence for that lead, and for their colleagues if the campaign is set to.
+     Answer replies from your normal email app.</p>
+  {% if events %}{% include "_events_table.html" %}
+  {% else %}<p class="muted">Nothing here yet. Inboxes are checked every few minutes.</p>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{{ campaign.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ campaign.name }} <span class="badge {{ campaign.status }}">{{ campaign.status }}</span></h1>
+  <div class="actions">
+    {% if campaign.status == 'active' %}
+    <form method="post" action="/campaigns/{{ campaign.id }}/pause" class="inline"><button class="secondary">Pause</button></form>
+    {% else %}
+    <form method="post" action="/campaigns/{{ campaign.id }}/start" class="inline"><button {{ 'disabled' if errors }}>Start sending</button></form>
+    {% endif %}
+  </div>
+</div>
+
+{% if errors %}<div class="notice bad"><strong>Fix before starting:</strong><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+{% if warnings %}<div class="notice"><ul>{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>{% endif %}
+
+<div class="stats">
+  <div class="stat"><div class="num">{{ stats.total }}</div><div class="label">Leads in campaign</div></div>
+  <div class="stat"><div class="num">{{ stats.queued + stats.in_progress }}</div><div class="label">Still in sequence</div></div>
+  <div class="stat"><div class="num">{{ stats.contacted }}</div><div class="label">Contacted</div></div>
+  <div class="stat"><div class="num">{{ stats.replied }}</div><div class="label">Replied ({{ stats.reply_rate|pct }})</div></div>
+  <div class="stat"><div class="num">{{ stats.bounced }}</div><div class="label">Bounced ({{ stats.bounce_rate|pct }})</div></div>
+  <div class="stat"><div class="num">{{ stats.unsubscribed }}</div><div class="label">Unsubscribed</div></div>
+</div>
+
+<div class="card" id="settings">
+  <h2>1. Settings</h2>
+  <form method="post" action="/campaigns/{{ campaign.id }}/settings">
+    <div class="form-grid">
+      <div><label for="name">Name</label><input type="text" id="name" name="name" value="{{ campaign.name }}"></div>
+    </div>
+    <div class="field">
+      <label>Send from these mailboxes <span class="hint">Each lead gets all their emails from the same mailbox</span></label>
+      {% if all_mailboxes %}
+      <div class="checks">
+        {% for mb in all_mailboxes %}
+        <label><input type="checkbox" name="mailbox_ids" value="{{ mb.id }}" {{ 'checked' if mb.id in selected_ids }}>
+          {{ mb.email }} <span class="badge {{ mb.status }}">{{ mb.status }}</span></label>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">No mailboxes yet. <a href="/mailboxes/new">Add one</a>.</p>{% endif %}
+    </div>
+    <div class="two-col">
+      <div class="field"><label for="sender_address">Your postal address
+          <span class="hint">Required in commercial emails by anti-spam laws. Fills {{ '{{sender_address}}' }}.</span></label>
+        <textarea id="sender_address" name="sender_address" style="min-height:80px">{{ campaign.sender_address }}</textarea></div>
+      <div class="field"><label for="footer">Footer <span class="hint">Must include {{ '{{unsubscribe_url}}' }}</span></label>
+        <textarea id="footer" name="footer" style="min-height:80px">{{ campaign.footer }}</textarea></div>
+    </div>
+    <label class="check field"><input type="checkbox" name="stop_on_company_reply" value="true" {{ 'checked' if campaign.stop_on_company_reply }}>
+      When someone replies, stop emailing their colleagues at the same company</label>
+    <button>Save settings</button>
+  </form>
+</div>
+
+<div class="card" id="emails">
+  <h2>2. Emails</h2>
+  <p class="small muted">Placeholders: {{ '{{first_name}}' }}, {{ '{{company}}' }}, {{ '{{title}}' }}, {{ '{{website}}' }},
+     {{ '{{sender_name}}' }} or any CSV column. Add a fallback after a bar: {{ '{{first_name|there}}' }}.
+     A follow-up with an empty subject is sent as a reply in the same thread. Previews use {{ sample_email }}.</p>
+  <form method="post" action="/campaigns/{{ campaign.id }}/steps">
+    {# Pressing Enter submits the first button in the form, so make that one "save". #}
+    <button name="action" value="save" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px">Save</button>
+    {% for item in previews %}{% set step = item.step %}
+    <div class="step">
+      <div class="page-head">
+        <h2 style="margin:0">Email {{ step.position }}</h2>
+        {% if previews|length > 1 %}<button class="danger" name="action" value="remove:{{ loop.index0 }}">Remove</button>{% endif %}
+      </div>
+      <div class="two-col">
+        <div>
+          {% if step.position == 1 %}
+          <input type="hidden" name="delay_days" value="0">
+          {% else %}
+          <div class="field"><label>Wait (days after the previous email)</label>
+            <input type="number" name="delay_days" min="0" max="60" value="{{ step.delay_days }}"></div>
+          {% endif %}
+          <div class="field"><label>Subject {% if step.position > 1 %}<span class="hint">Leave empty to reply in the same thread</span>{% endif %}</label>
+            <input type="text" name="subject" value="{{ step.subject }}"></div>
+          <div class="field"><label>Body</label>
+            <textarea name="body" style="min-height:220px">{{ step.body }}</textarea></div>
+        </div>
+        <div>
+          <label>Preview</label>
+          <pre class="preview"><strong>Subject:</strong> {{ item.draft.subject }}
+
+{{ item.draft.body }}</pre>
+          {% if item.draft.missing %}
+          <div class="notice bad small" style="margin-top:8px">Missing for this lead: {{ item.draft.missing|unique|join(', ') }}.
+            Leads without this data are skipped, so add a fallback like {{ '{{first_name|there}}' }}.</div>
+          {% endif %}
+          {% if item.warnings %}
+          <div class="notice small" style="margin-top:8px"><ul>{% for w in item.warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="actions" style="margin-top:16px">
+      <button name="action" value="save">Save emails</button>
+      <button class="secondary" name="action" value="add">Add follow-up</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" id="leads">
+  <h2>3. Leads</h2>
+  <form method="post" action="/campaigns/{{ campaign.id }}/enroll" class="form-grid">
+    <div><label for="source">Add leads from</label>
+      <select id="source" name="source">
+        <option value="">All leads</option>
+        {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+      </select></div>
+    <div style="align-self:end"><button>Add to campaign</button></div>
+  </form>
+  <p class="small muted">Anyone suppressed, who already replied, or who is in another active sequence is skipped.</p>
+  {% if enrollments %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Lead</th><th>Status</th><th>Next email</th><th>Next send (UTC)</th><th>Mailbox</th><th>Note</th></tr></thead>
+    <tbody>
+    {% for e in enrollments %}
+    <tr>
+      <td>{{ e.lead.email }}<div class="small muted">{{ e.lead.first_name }} {{ e.lead.company }}</div></td>
+      <td><span class="badge {{ e.status }}">{{ e.status|replace('_', ' ') }}</span></td>
+      <td>{{ '#%d' % e.next_step if e.status in ('queued', 'in_progress') else '-' }}</td>
+      <td class="small">{{ e.next_send_at|dt }}</td>
+      <td class="small">{{ e.mailbox.email if e.mailbox else '-' }}</td>
+      <td class="small muted">{{ e.note }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if stats.total > enrollments|length %}<p class="small muted">Showing the {{ enrollments|length }} most recently updated of {{ stats.total }}.</p>{% endif %}
+  {% endif %}
+</div>
+
+<div class="card" id="test">
+  <h2>4. Send yourself a test</h2>
+  <p class="small muted">Send to a Gmail and an Outlook address you own, and check whether it lands in Inbox or Spam before you start.</p>
+  <form method="post" action="/campaigns/{{ campaign.id }}/test" class="form-grid">
+    <div><label for="to_email">Send to</label><input type="email" id="to_email" name="to_email" required></div>
+    <div><label for="position">Email</label>
+      <select id="position" name="position">
+        {% for item in previews %}<option value="{{ item.step.position }}">Email {{ item.step.position }}</option>{% endfor %}
+      </select></div>
+    <div style="align-self:end"><button class="secondary">Send test</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <form method="post" action="/campaigns/{{ campaign.id }}/delete" onsubmit="return confirm('Delete this campaign and its progress? Your leads are kept.')">
+    <button class="danger">Delete campaign</button>
+  </form>
+</div>
+{% endblock %}
