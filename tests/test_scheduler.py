@@ -162,3 +162,18 @@ def test_validate_campaign_lists_blocking_problems():
     joined = " ".join(errors)
     for expected in ("subject", "body", "mailbox", "unsubscribe_url", "postal address"):
         assert expected in joined
+
+
+def test_two_ticks_at_the_same_time_send_only_once(session):
+    """An outside timer can fire twice at once; the mailbox claim must prevent a double send."""
+    mailbox = make_mailbox()
+    campaign = make_campaign(session, mailbox, [Lead(email="jane@acme.com", first_name="Jane", company="Acme")])
+    enroll_all_due(session, campaign)
+    outbox = []
+
+    def send(_mailbox, msg):
+        outbox.append(msg)
+
+    assert run_send_tick(session, now=MONDAY_10AM, send=send) == 1
+    assert run_send_tick(session, now=MONDAY_10AM, send=send) == 0
+    assert len(outbox) == 1

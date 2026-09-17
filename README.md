@@ -107,6 +107,43 @@ which is fine for tests to yourself. Before emailing real people, give the app a
 
 Then set `PUBLIC_BASE_URL=https://go.trythebrand.com` and restart. Run only one copy of the app, or emails get sent twice.
 
+## Put it online with Vercel
+
+Vercel only runs code when a request arrives, and it wipes files between deploys. So two things change:
+the database moves to free hosted Postgres, and an outside timer triggers the sending.
+
+1. **Database**: sign up at neon.com (free), create a project and copy the pooled connection string. It looks like
+   `postgresql://user:password@ep-something-pooler.region.aws.neon.tech/neondb?sslmode=require`.
+2. **Import the repo**: at vercel.com choose Add New > Project, import this GitHub repository, and pick "Other"
+   as the framework.
+3. **Environment variables** (Settings > Environment Variables):
+
+   | Name | Value |
+   |---|---|
+   | `DATABASE_URL` | the Neon connection string |
+   | `SECRET_KEY` | a long random string; never change it after adding mailboxes |
+   | `ADMIN_PASSWORD` | your dashboard password |
+   | `PUBLIC_BASE_URL` | `https://your-project.vercel.app` (set it after the first deploy, then redeploy) |
+   | `WORKER_ENABLED` | `false` |
+   | `CRON_SECRET` | another long random string |
+
+4. **Deploy**, open the URL and log in. The hosted app starts with an empty database, so add your domain,
+   mailboxes and leads again there.
+5. **The timer**: sign up at cron-job.org (free) and create a job that calls
+   `https://your-project.vercel.app/tasks/tick?key=YOUR_CRON_SECRET` every 3 minutes. Each call sends whatever is
+   due and checks the inboxes. Vercel's own cron can't do this on the free plan, where jobs run only once a day.
+
+To check it works, open `https://your-project.vercel.app/tasks/tick?key=YOUR_CRON_SECRET` in a browser. It should
+answer `{"sent": 0, "inboxes_checked": true}`.
+
+Worth knowing:
+
+- One email per mailbox per timer call, so a 3-minute timer allows about 20 per hour per mailbox, far above the
+  20-40 per day you should actually send.
+- Vercel's free Hobby plan is meant for personal, non-commercial projects; business use needs Pro at $20/month.
+  A small Linux server at about $5/month runs this app unchanged, background sender included.
+- Keep `WORKER_ENABLED=false` on Vercel, and never commit `.env`.
+
 ## Rules that keep you out of spam
 
 - 20-40 cold emails per mailbox per day, at most. Add mailboxes to send more, don't raise the limit.
@@ -143,5 +180,6 @@ Mailbox passwords are stored encrypted with `SECRET_KEY`. Don't change that key 
 Run the tests with:
 
 ```
+.venv\Scripts\python -m pip install -r requirements-dev.txt
 .venv\Scripts\python -m pytest
 ```

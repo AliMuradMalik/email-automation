@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from .config import BASE_DIR, settings
 
@@ -12,15 +13,24 @@ class Base(DeclarativeBase):
     pass
 
 
+def _normalise_url(url: str) -> str:
+    """Hosted Postgres URLs arrive as postgres:// or postgresql://; use the psycopg 3 driver."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def _make_engine():
     if settings.database_url:
-        url = settings.database_url
+        url = _normalise_url(settings.database_url)
     else:
         (BASE_DIR / "data").mkdir(exist_ok=True)
         url = URL.create("sqlite", database=str(BASE_DIR / "data" / "outreach.db"))
 
     if not str(url).startswith("sqlite"):
-        return create_engine(url, pool_pre_ping=True)
+        # Serverless hosts run a fresh process per request, so don't hold a pool of connections open.
+        return create_engine(url, poolclass=NullPool, pool_pre_ping=True)
 
     # The web app and the background worker share one SQLite file across threads.
     eng = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})

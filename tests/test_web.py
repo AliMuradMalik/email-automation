@@ -146,3 +146,23 @@ def test_every_start_error_is_flashed(client):
     # Each error shows twice: as a flash message and in the page's "Fix before starting" list.
     assert html.count("Assign at least one active mailbox") == 2
     assert html.count("Add your postal address") == 2
+
+
+def test_tick_endpoint_requires_the_secret(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "cron_secret", "tick-secret")
+    assert client.get("/tasks/tick").status_code == 403
+    assert client.get("/tasks/tick?key=wrong").status_code == 403
+
+    response = client.get("/tasks/tick?key=tick-secret")
+    assert response.status_code == 200
+    assert response.json() == {"sent": 0, "inboxes_checked": True}
+    assert client.post("/tasks/tick", headers={"Authorization": "Bearer tick-secret"}).status_code == 200
+
+
+def test_tick_endpoint_is_off_when_no_secret_is_set(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "cron_secret", "")
+    assert client.get("/tasks/tick?key=").status_code == 403

@@ -2,8 +2,9 @@
 import logging
 import threading
 import time
+from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from .config import settings
 from .db import SessionLocal
@@ -17,13 +18,21 @@ log = logging.getLogger(__name__)
 _inbox_lock = threading.Lock()
 
 
-def check_inboxes() -> bool:
-    """Poll every mailbox. Returns False if another check is already running."""
+def check_inboxes(max_age_seconds: int | None = None) -> bool:
+    """Poll mailboxes for replies and bounces, skipping any checked within max_age_seconds.
+
+    Returns False if another check is already running.
+    """
     if not _inbox_lock.acquire(blocking=False):
         return False
     try:
         with SessionLocal() as session:
-            for mailbox_id in session.scalars(select(Mailbox.id)).all():
+            query = select(Mailbox.id)
+            if max_age_seconds is not None:
+                cutoff = utcnow() - timedelta(seconds=max_age_seconds)
+                query = query.where(or_(Mailbox.last_inbox_check.is_(None),
+                                        Mailbox.last_inbox_check <= cutoff))
+            for mailbox_id in session.scalars(query).all():
                 mailbox = session.get(Mailbox, mailbox_id)
                 try:
                     poll_mailbox(session, mailbox)

@@ -1,4 +1,5 @@
 """Web dashboard."""
+import hmac
 import re
 import time
 from contextlib import asynccontextmanager
@@ -17,11 +18,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import dns_check, mailer
 from .config import settings
-from .db import get_session, init_db
+from .db import get_session, init_db, session_scope
 from .leads_import import import_csv
 from .models import (DEFAULT_FOOTER, Campaign, Domain, Enrollment, InboxEvent, Lead, Mailbox, SentEmail, Step,
                      Suppression, suppress, utcnow)
-from .scheduler import compose, daily_cap, enroll_leads, in_send_window, local_now, sent_today, validate_campaign
+from .scheduler import (compose, daily_cap, enroll_leads, in_send_window, local_now, run_send_tick,
+                        sent_today, validate_campaign)
 from .security import check_admin_password, encrypt, read_unsubscribe_token
 from .templating import check_content, has_example_text
 from .worker import check_inboxes, worker
@@ -156,6 +158,26 @@ def start_errors(campaign: Campaign) -> tuple[list[str], list[str]]:
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+def _run_tick() -> dict:
+    with session_scope() as session:
+        sent = run_send_tick(session)
+    return {"sent": sent, "inboxes_checked": check_inboxes(max_age_seconds=settings.inbox_tick_seconds)}
+
+
+@app.get("/tasks/tick")
+@app.post("/tasks/tick")
+async def tasks_tick(request: Request, key: str = ""):
+    """Send what is due and check inboxes.
+
+    An outside timer calls this when the app is hosted somewhere that cannot keep a
+    background thread running, such as Vercel. Protected by CRON_SECRET.
+    """
+    supplied = request.headers.get("authorization", "").removeprefix("Bearer ").strip() or key
+    if not settings.cron_secret or not hmac.compare_digest(supplied.encode(), settings.cron_secret.encode()):
+        raise HTTPException(status_code=403, detail="Wrong or missing key.")
+    return await run_in_threadpool(_run_tick)
 
 
 @app.get("/login", response_class=HTMLResponse)

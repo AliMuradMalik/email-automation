@@ -17,6 +17,7 @@ class Settings:
         self.admin_password = os.getenv("ADMIN_PASSWORD", "")
         self.secret_key = os.getenv("SECRET_KEY", "")
         self.database_url = os.getenv("DATABASE_URL", "")
+        self.cron_secret = os.getenv("CRON_SECRET", "")
         self.public_base_url = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
         self.host = os.getenv("HOST", "127.0.0.1")
         self.port = int(os.getenv("PORT", "8000"))

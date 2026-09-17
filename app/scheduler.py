@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from . import mailer
@@ -24,6 +24,7 @@ LIMIT_BACKOFF = timedelta(hours=6)
 BOUNCE_PAUSE_RATE = 0.05
 BOUNCE_SAMPLE = 50
 BOUNCE_MIN_SENDS = 20
+CLAIM_LEASE = timedelta(seconds=60)
 
 _STATUS_FOR_REASON = {"unsubscribed": "unsubscribed", "bounced": "bounced"}
 
@@ -262,6 +263,16 @@ def _send_next(session: Session, mailbox: Mailbox, now: datetime, today: date, s
     return False
 
 
+def claim_mailbox(session: Session, mailbox: Mailbox, now: datetime) -> bool:
+    """Take this mailbox for this tick, so two ticks running at once never send twice."""
+    claimed = session.execute(update(Mailbox).where(
+        Mailbox.id == mailbox.id,
+        or_(Mailbox.next_send_at.is_(None), Mailbox.next_send_at <= now),
+    ).values(next_send_at=now + CLAIM_LEASE))
+    session.commit()
+    return claimed.rowcount == 1
+
+
 def run_send_tick(session: Session, now: datetime | None = None, send=None) -> int:
     """Send at most one email per mailbox. Called every few seconds by the worker."""
     now = now or utcnow()
@@ -270,8 +281,6 @@ def run_send_tick(session: Session, now: datetime | None = None, send=None) -> i
     mailboxes = list(session.scalars(select(Mailbox).where(Mailbox.status == "active")))
     random.shuffle(mailboxes)
     for mailbox in mailboxes:
-        if mailbox.next_send_at and mailbox.next_send_at > now:
-            continue
         if not in_send_window(mailbox, now):
             continue
         today = local_now(mailbox, now).date()
@@ -284,6 +293,8 @@ def run_send_tick(session: Session, now: datetime | None = None, send=None) -> i
                                   "Clean your lead list before resuming.")
             session.commit()
             continue
+        if not claim_mailbox(session, mailbox, now):
+            continue  # another tick is already sending from this mailbox
         if _send_next(session, mailbox, now, today, send):
             sent += 1
     return sent
